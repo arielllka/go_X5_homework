@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VgoProject">
+    <environment>
+      <map>
+        <entry key="GOPRIVATE" value="scm.x5.ru" />
+        <entry key="GOPROXY" value="" />
+        <entry key="HTTPS_PROXY" value="" />
+        <entry key="HTTP_PROXY" value="" />
+        <entry key="NO_PROXY" value="" />
+        <entry key="http_proxy" value="" />
+        <entry key="https_proxy" value="" />
+      </map>
+    </environment>
+  </component>
+</project>
