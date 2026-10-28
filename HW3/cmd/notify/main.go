@@ -17,15 +17,20 @@ func main() {
 		BaseNotifier: practice.BaseNotifier{Channel: "push"},
 		DeviceID:     "phone-1",
 	}
-	all := []practice.Notifier{email, push}
+	sms := &practice.SMSNotifier{
+		BaseNotifier: practice.BaseNotifier{Channel: "sms"},
+		PhoneNumber:  "demo-number-1",
+	}
+	all := []practice.Notifier{email, push, sms}
 
 	fmt.Println("1. Успешная рассылка")
 	if err := practice.Dispatch(all, message); err != nil {
 		fmt.Printf("Ошибка: %v\n", err)
 	} else {
-		fmt.Println("Оба канала получили сообщение, ошибок нет.")
+		fmt.Println("Все три канала получили сообщение, ошибок нет.")
 	}
 	fmt.Printf("История email: %q\nИстория push: %q\n", email.Messages, push.Messages)
+	fmt.Printf("История SMS: %q\n", sms.Messages)
 
 	fmt.Println("\n2. Пустой текст")
 	if err := practice.Dispatch(all, ""); errors.Is(err, practice.ErrEmptyMessage) {
@@ -34,6 +39,7 @@ func main() {
 		fmt.Printf("Неожиданный результат: %v\n", err)
 	}
 	fmt.Printf("История email: %q\nИстория push: %q\n", email.Messages, push.Messages)
+	fmt.Printf("История SMS: %q\n", sms.Messages)
 
 	fmt.Println("\n3. Нет настройки push")
 	unconfiguredPush := &practice.PushNotifier{
@@ -56,7 +62,11 @@ func main() {
 		BaseNotifier: practice.BaseNotifier{Channel: "push"},
 		DeviceID:     "phone-2",
 	}
-	failures := practice.SafeDispatch([]practice.Notifier{broken, nextPush}, message)
+	nextSMS := &practice.SMSNotifier{
+		BaseNotifier: practice.BaseNotifier{Channel: "sms"},
+		PhoneNumber:  "demo-number-2",
+	}
+	failures := practice.SafeDispatch([]practice.Notifier{broken, nextPush, nextSMS}, message)
 	fmt.Printf("Ошибок: %d\n", len(failures))
 	for _, err := range failures {
 		if errors.Is(err, practice.ErrNotifierPanic) {
@@ -66,4 +76,5 @@ func main() {
 		}
 	}
 	fmt.Printf("История следующего push: %q\n", nextPush.Messages)
+	fmt.Printf("История следующего SMS: %q\n", nextSMS.Messages)
 }

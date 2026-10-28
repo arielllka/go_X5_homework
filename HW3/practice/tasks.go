@@ -34,6 +34,12 @@ type PushNotifier struct {
 	Messages []string
 }
 
+type SMSNotifier struct {
+	BaseNotifier
+	PhoneNumber string
+	Messages    []string
+}
+
 // Дополнительный контракт только для подписи ошибки.
 // Основной интерфейс Notifier остаётся прежним.
 type namedNotifier interface {
@@ -85,6 +91,17 @@ func (n *PushNotifier) Send(message string) error {
 	}
 	if n.DeviceID == "" {
 		return &SendError{Channel: n.Channel, Reason: "не задан device id"}
+	}
+	n.Messages = append(n.Messages, n.Label(message))
+	return nil
+}
+
+func (n *SMSNotifier) Send(message string) error {
+	if message == "" {
+		return ErrEmptyMessage
+	}
+	if n.PhoneNumber == "" {
+		return &SendError{Channel: n.Channel, Reason: "не задан номер телефона"}
 	}
 	n.Messages = append(n.Messages, n.Label(message))
 	return nil
@@ -146,3 +163,5 @@ func Describe(n Notifier) string {
 var _ Notifier = (*EmailNotifier)(nil)
 
 var _ Notifier = (*PushNotifier)(nil)
+
+var _ Notifier = (*SMSNotifier)(nil)
