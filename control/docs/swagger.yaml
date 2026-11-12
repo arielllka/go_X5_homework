@@ -1,0 +1,233 @@
+basePath: /
+definitions:
+  handler.errorResponse:
+    properties:
+      code:
+        type: string
+      error:
+        type: string
+    type: object
+  order.CreateOrderInput:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/order.Item'
+        type: array
+    type: object
+  order.Item:
+    properties:
+      name:
+        type: string
+      price:
+        type: integer
+      quantity:
+        type: integer
+    type: object
+  order.Order:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/order.Item'
+        type: array
+      status:
+        $ref: '#/definitions/order.Status'
+      total_price:
+        type: integer
+    type: object
+  order.Status:
+    enum:
+    - new
+    - processing
+    - completed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - StatusNew
+    - StatusProcessing
+    - StatusCompleted
+    - StatusCancelled
+  order.StatusChange:
+    properties:
+      changed_at:
+        type: string
+      status:
+        $ref: '#/definitions/order.Status'
+    type: object
+  order.UpdateStatusInput:
+    properties:
+      status:
+        $ref: '#/definitions/order.Status'
+    type: object
+info:
+  contact: {}
+  description: Сервис создания заказов, изменения статусов и просмотра истории. Цены
+    указаны в копейках.
+  title: Orders API
+  version: "1.0"
+paths:
+  /api/v1/orders:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/order.Order'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+      summary: Получить список заказов
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Позиции заказа
+        in: body
+        name: order
+        required: true
+        schema:
+          $ref: '#/definitions/order.CreateOrderInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/order.Order'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+      summary: Создать заказ
+  /api/v1/orders/{id}:
+    get:
+      parameters:
+      - description: ID заказа
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/order.Order'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+      summary: Получить заказ
+  /api/v1/orders/{id}/history:
+    get:
+      description: Записи возвращаются в хронологическом порядке.
+      parameters:
+      - description: ID заказа
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/order.StatusChange'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+      summary: Получить историю статусов
+  /api/v1/orders/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: new можно изменить на processing или cancelled. processing можно
+        изменить на completed или cancelled. Конечные статусы изменять нельзя.
+      parameters:
+      - description: ID заказа
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      - description: Новый статус
+        in: body
+        name: status
+        required: true
+        schema:
+          $ref: '#/definitions/order.UpdateStatusInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/order.Order'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.errorResponse'
+      summary: Изменить статус заказа
+  /health:
+    get:
+      description: Возвращает status со значением ok.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Проверка доступности
+schemes:
+- http
+swagger: "2.0"
