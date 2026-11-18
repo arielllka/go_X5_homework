@@ -1,0 +1,46 @@
+@base = http://127.0.0.1:8080
+
+### Статус: 200
+GET {{base}}/api/v1/status
+
+### Создание: 201, Location /api/v1/orders/1 при первом запросе
+POST {{base}}/api/v1/orders
+Content-Type: application/json
+
+{"customer":"Алиса"}
+
+### Получение созданного заказа: 200
+GET {{base}}/api/v1/orders/1
+
+### Заказ не найден: 404 ORDER_NOT_FOUND
+GET {{base}}/api/v1/orders/999
+
+### Неверный id: 400 INVALID_ID
+GET {{base}}/api/v1/orders/abc
+
+### Пустое имя: 400 VALIDATION_ERROR
+POST {{base}}/api/v1/orders
+Content-Type: application/json
+
+{"customer":" "}
+
+### Ошибка JSON: 400 INVALID_JSON
+POST {{base}}/api/v1/orders
+Content-Type: application/json
+
+{"customer":"Алиса","status":"new"}
+
+### Список заказов
+GET {{base}}/api/v1/orders
+
+### Второй заказ
+GET {{base}}/api/v1/orders?limit=1&offset=1
+
+### Неверные параметры: 400 INVALID_QUERY
+GET {{base}}/api/v1/orders?limit=0
+
+### Swagger UI
+GET {{base}}/swagger/index.html
+
+### Спецификация
+GET {{base}}/swagger/doc.json
