@@ -98,6 +98,7 @@ func TestUnsupportedMethodDescribesAllowedMethods(t *testing.T) {
 		{"DELETE", "/api/v1/orders/1", "GET, HEAD"},
 		{"POST", "/api/v1/status", "GET, HEAD"},
 		{"DELETE", "/api/v1/orders", "GET, HEAD, POST"},
+		{"GET", "/api/v1/orders/1/status", "PATCH"},
 	} {
 		w := request(handler, tt.method, tt.path, "", "")
 		if w.Code != 405 || w.Header().Get("Allow") != tt.allow {
@@ -132,7 +133,7 @@ func TestSwaggerRoutes(t *testing.T) {
 	}
 	if spec.BasePath != "/api/v1" || spec.Paths["/status"]["get"] == nil ||
 		spec.Paths["/orders"]["get"] == nil || spec.Paths["/orders"]["post"] == nil ||
-		spec.Paths["/orders/{id}"]["get"] == nil {
+		spec.Paths["/orders/{id}"]["get"] == nil || spec.Paths["/orders/{id}/status"]["patch"] == nil {
 		t.Fatalf("incomplete Swagger specification: %+v", spec)
 	}
 }

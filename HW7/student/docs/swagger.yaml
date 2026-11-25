@@ -49,6 +49,16 @@ definitions:
     required:
     - status
     type: object
+  httpapi.UpdateOrderStatusRequest:
+    properties:
+      status:
+        enum:
+        - cancelled
+        example: cancelled
+        type: string
+    required:
+    - status
+    type: object
 info:
   contact: {}
   title: Orders API
@@ -56,9 +66,10 @@ info:
 paths:
   /orders:
     get:
-      description: Заказы отсортированы по id по возрастанию. Пустая страница возвращает
-        []. Допустимы только десятичные цифры. Пустые, повторные, неизвестные параметры
-        и значения вне диапазона возвращают 400 INVALID_QUERY.
+      description: Сначала применяется фильтр status, затем сортировка по id и пагинация.
+        Без status возвращаются все заказы. Пустая страница возвращает []. Числовые
+        параметры допускают только десятичные цифры. Пустые, повторные, неизвестные
+        параметры и неверные значения возвращают 400 INVALID_QUERY.
       parameters:
       - default: 20
         description: Размер страницы
@@ -73,6 +84,13 @@ paths:
         minimum: 0
         name: offset
         type: integer
+      - description: Статус заказа
+        enum:
+        - new
+        - cancelled
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -164,6 +182,59 @@ paths:
           schema:
             $ref: '#/definitions/httpapi.ErrorResponse'
       summary: Получить заказ
+      tags:
+      - orders
+  /orders/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Разрешён только переход new в cancelled. Проверка и изменение статуса
+        выполняются атомарно. Повторная отмена возвращает 409 ORDER_ALREADY_CANCELLED.
+      parameters:
+      - description: Положительный идентификатор заказа
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      - description: 'Новый статус: cancelled'
+        in: body
+        name: status
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.UpdateOrderStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.OrderResponse'
+        "400":
+          description: INVALID_ID, INVALID_JSON или VALIDATION_ERROR
+          schema:
+            $ref: '#/definitions/httpapi.ErrorResponse'
+        "404":
+          description: ORDER_NOT_FOUND
+          schema:
+            $ref: '#/definitions/httpapi.ErrorResponse'
+        "409":
+          description: ORDER_ALREADY_CANCELLED
+          schema:
+            $ref: '#/definitions/httpapi.ErrorResponse'
+        "413":
+          description: BODY_TOO_LARGE
+          schema:
+            $ref: '#/definitions/httpapi.ErrorResponse'
+        "415":
+          description: UNSUPPORTED_MEDIA_TYPE
+          schema:
+            $ref: '#/definitions/httpapi.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.ErrorResponse'
+      summary: Отменить заказ
       tags:
       - orders
   /status:

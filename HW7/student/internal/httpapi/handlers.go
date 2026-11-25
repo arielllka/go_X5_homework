@@ -15,7 +15,8 @@ import (
 type Orders interface {
 	Create(string) (model.Order, error)
 	ByID(int) (model.Order, error)
-	List(int, int) ([]model.Order, error)
+	List(int, int, string) ([]model.Order, error)
+	Cancel(int) (model.Order, error)
 }
 type API struct {
 	orders Orders
@@ -99,20 +100,21 @@ func (a *API) getOrder(w http.ResponseWriter, r *http.Request) {
 // @Summary Список заказов
 // @Tags orders
 // @Produce json
-// @Description Заказы отсортированы по id по возрастанию. Пустая страница возвращает []. Допустимы только десятичные цифры. Пустые, повторные, неизвестные параметры и значения вне диапазона возвращают 400 INVALID_QUERY.
+// @Description Сначала применяется фильтр status, затем сортировка по id и пагинация. Без status возвращаются все заказы. Пустая страница возвращает []. Числовые параметры допускают только десятичные цифры. Пустые, повторные, неизвестные параметры и неверные значения возвращают 400 INVALID_QUERY.
 // @Param limit query int false "Размер страницы" minimum(1) maximum(100) default(20)
 // @Param offset query int false "Количество пропускаемых заказов" minimum(0) default(0)
+// @Param status query string false "Статус заказа" enums(new,cancelled)
 // @Success 200 {array} OrderResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /orders [get]
 func (a *API) listOrders(w http.ResponseWriter, r *http.Request) {
-	limit, offset, ok := parsePagination(r.URL.RawQuery)
+	limit, offset, status, ok := parseListQuery(r.URL.RawQuery)
 	if !ok {
 		writeError(w, 400, "invalid query parameters", "INVALID_QUERY")
 		return
 	}
-	orders, err := a.orders.List(limit, offset)
+	orders, err := a.orders.List(limit, offset, status)
 	if err != nil {
 		a.internalError(w, r, err)
 		return
@@ -124,35 +126,93 @@ func (a *API) listOrders(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, out)
 }
 
-func parsePagination(rawQuery string) (int, int, bool) {
+func parseListQuery(rawQuery string) (int, int, string, bool) {
 	query, err := url.ParseQuery(rawQuery)
 	if err != nil {
-		return 0, 0, false
+		return 0, 0, "", false
 	}
 	limit, offset := 20, 0
+	status := ""
 	for name, values := range query {
-		if (name != "limit" && name != "offset") || len(values) != 1 || values[0] == "" {
-			return 0, 0, false
+		if (name != "limit" && name != "offset" && name != "status") || len(values) != 1 || values[0] == "" {
+			return 0, 0, "", false
+		}
+		if name == "status" {
+			if values[0] != "new" && values[0] != "cancelled" {
+				return 0, 0, "", false
+			}
+			status = values[0]
+			continue
 		}
 		for _, digit := range values[0] {
 			if digit < '0' || digit > '9' {
-				return 0, 0, false
+				return 0, 0, "", false
 			}
 		}
 		value, err := strconv.Atoi(values[0])
 		if err != nil {
-			return 0, 0, false
+			return 0, 0, "", false
 		}
 		if name == "limit" {
 			if value < 1 || value > 100 {
-				return 0, 0, false
+				return 0, 0, "", false
 			}
 			limit = value
 		} else {
 			offset = value
 		}
 	}
-	return limit, offset, true
+	return limit, offset, status, true
+}
+
+// @Summary Отменить заказ
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Description Разрешён только переход new в cancelled. Проверка и изменение статуса выполняются атомарно. Повторная отмена возвращает 409 ORDER_ALREADY_CANCELLED.
+// @Param id path int true "Положительный идентификатор заказа" minimum(1)
+// @Param status body UpdateOrderStatusRequest true "Новый статус: cancelled"
+// @Success 200 {object} OrderResponse
+// @Failure 400 {object} ErrorResponse "INVALID_ID, INVALID_JSON или VALIDATION_ERROR"
+// @Failure 404 {object} ErrorResponse "ORDER_NOT_FOUND"
+// @Failure 409 {object} ErrorResponse "ORDER_ALREADY_CANCELLED"
+// @Failure 413 {object} ErrorResponse "BODY_TOO_LARGE"
+// @Failure 415 {object} ErrorResponse "UNSUPPORTED_MEDIA_TYPE"
+// @Failure 500 {object} ErrorResponse
+// @Router /orders/{id}/status [patch]
+func (a *API) updateOrderStatus(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil || id <= 0 {
+		writeError(w, 400, "id must be a positive integer", "INVALID_ID")
+		return
+	}
+	var in *UpdateOrderStatusRequest
+	if err := decodeJSON(w, r, &in); err != nil {
+		writeError(w, err.status, err.message, err.code)
+		return
+	}
+	if in == nil {
+		writeError(w, 400, "body must be a JSON object", "INVALID_JSON")
+		return
+	}
+	if in.Status != "cancelled" {
+		writeError(w, 400, "status must be cancelled", "VALIDATION_ERROR")
+		return
+	}
+	order, err := a.orders.Cancel(id)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeError(w, 404, "order not found", "ORDER_NOT_FOUND")
+		return
+	}
+	if errors.Is(err, repository.ErrAlreadyCancelled) {
+		writeError(w, 409, "order already cancelled", "ORDER_ALREADY_CANCELLED")
+		return
+	}
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	writeJSON(w, 200, orderResponse(order))
 }
 
 func (a *API) internalError(w http.ResponseWriter, r *http.Request, err error) {
