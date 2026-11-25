@@ -9,6 +9,7 @@ import (
 )
 
 var ErrNotFound = errors.New("order not found")
+var ErrAlreadyCancelled = errors.New("order already cancelled")
 
 type Memory struct {
 	mu     sync.Mutex
@@ -36,20 +37,37 @@ func (m *Memory) ByID(id int) (model.Order, error) {
 	return order, nil
 }
 
-func (m *Memory) List(limit, offset int) ([]model.Order, error) {
+func (m *Memory) List(limit, offset int, status string) ([]model.Order, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if offset >= len(m.orders) {
-		return []model.Order{}, nil
-	}
 	orders := make([]model.Order, 0, len(m.orders))
 	for _, order := range m.orders {
-		orders = append(orders, order)
+		if status == "" || order.Status == status {
+			orders = append(orders, order)
+		}
 	}
 	sort.Slice(orders, func(i, j int) bool { return orders[i].ID < orders[j].ID })
+	if offset >= len(orders) {
+		return []model.Order{}, nil
+	}
 	orders = orders[offset:]
 	if len(orders) > limit {
 		orders = orders[:limit]
 	}
 	return orders, nil
+}
+
+func (m *Memory) Cancel(id int) (model.Order, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	order, ok := m.orders[id]
+	if !ok {
+		return model.Order{}, ErrNotFound
+	}
+	if order.Status == "cancelled" {
+		return model.Order{}, ErrAlreadyCancelled
+	}
+	order.Status = "cancelled"
+	m.orders[id] = order
+	return order, nil
 }

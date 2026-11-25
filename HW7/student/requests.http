@@ -39,6 +39,24 @@ GET {{base}}/api/v1/orders?limit=1&offset=1
 ### Неверные параметры: 400 INVALID_QUERY
 GET {{base}}/api/v1/orders?limit=0
 
+### Фильтр новых заказов
+GET {{base}}/api/v1/orders?status=new&limit=20&offset=0
+
+### Отмена заказа: 200
+PATCH {{base}}/api/v1/orders/1/status
+Content-Type: application/json
+
+{"status":"cancelled"}
+
+### Повторная отмена: 409 ORDER_ALREADY_CANCELLED
+PATCH {{base}}/api/v1/orders/1/status
+Content-Type: application/json
+
+{"status":"cancelled"}
+
+### Фильтр отменённых заказов
+GET {{base}}/api/v1/orders?status=cancelled
+
 ### Swagger UI
 GET {{base}}/swagger/index.html
 

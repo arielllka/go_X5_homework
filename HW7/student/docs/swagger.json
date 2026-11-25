@@ -9,7 +9,7 @@
     "paths": {
         "/orders": {
             "get": {
-                "description": "Заказы отсортированы по id по возрастанию. Пустая страница возвращает []. Допустимы только десятичные цифры. Пустые, повторные, неизвестные параметры и значения вне диапазона возвращают 400 INVALID_QUERY.",
+                "description": "Сначала применяется фильтр status, затем сортировка по id и пагинация. Без status возвращаются все заказы. Пустая страница возвращает []. Числовые параметры допускают только десятичные цифры. Пустые, повторные, неизвестные параметры и неверные значения возвращают 400 INVALID_QUERY.",
                 "produces": [
                     "application/json"
                 ],
@@ -33,6 +33,16 @@
                         "default": 0,
                         "description": "Количество пропускаемых заказов",
                         "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "new",
+                            "cancelled"
+                        ],
+                        "type": "string",
+                        "description": "Статус заказа",
+                        "name": "status",
                         "in": "query"
                     }
                 ],
@@ -170,6 +180,84 @@
                 }
             }
         },
+        "/orders/{id}/status": {
+            "patch": {
+                "description": "Разрешён только переход new в cancelled. Проверка и изменение статуса выполняются атомарно. Повторная отмена возвращает 409 ORDER_ALREADY_CANCELLED.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Отменить заказ",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Положительный идентификатор заказа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Новый статус: cancelled",
+                        "name": "status",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.UpdateOrderStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "INVALID_ID, INVALID_JSON или VALIDATION_ERROR",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "ORDER_NOT_FOUND",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "ORDER_ALREADY_CANCELLED",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "BODY_TOO_LARGE",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.ErrorResponse"
+                        }
+                    },
+                    "415": {
+                        "description": "UNSUPPORTED_MEDIA_TYPE",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/status": {
             "get": {
                 "produces": [
@@ -257,6 +345,21 @@
                 "status": {
                     "type": "string",
                     "example": "ok"
+                }
+            }
+        },
+        "httpapi.UpdateOrderStatusRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "cancelled"
+                    ],
+                    "example": "cancelled"
                 }
             }
         }
